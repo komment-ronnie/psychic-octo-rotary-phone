@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-
 import {
   assert, bytesToString, createPromiseCapability, createValidAbsoluteUrl,
   FormatError, info, InvalidPDFException, isBool, isNum, isString,
