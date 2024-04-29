@@ -30,11 +30,31 @@ import { ChunkedStream } from './chunked_stream';
 import { CipherTransformFactory } from './crypto';
 import { ColorSpace } from './colorspace';
 
+/**
+ * @description Retrieves a destination value from a dictionary or returns the default
+ * value if the input is not a dictionary.
+ * 
+ * @param { any } dest - destination address, returning its value if it's a dictionary
+ * or the actual value if it's not.
+ * 
+ * @returns { string } a string representing the destination location.
+ */
 function fetchDestination(dest) {
   return isDict(dest) ? dest.get('D') : dest;
 }
 
 class Catalog {
+  /**
+   * @description Sets instance variables `pdfManager` and `xref`, initializes a `catDict`
+   * object, and sets up caches for font characters, built-in character maps, and page
+   * kid count.
+   * 
+   * @param { object } pdfManager - PDF manager, which provides an instance of the class
+   * PDFManger, needed to perform actions with the PDF file.
+   * 
+   * @param { object } xref - XRef object, which provides access to the contents of the
+   * PDF file.
+   */
   constructor(pdfManager, xref) {
     this.pdfManager = pdfManager;
     this.xref = xref;
@@ -49,6 +69,14 @@ class Catalog {
     this.pageKidsCountCache = new RefSetCache();
   }
 
+  /**
+   * @description Retrieves metadata from a PDF document's stream, checking for the
+   * type and subtype of the metadata to ensure it is valid XML data. If the metadata
+   * is invalid or missing, it is skipped and returned as null. The function then returns
+   * a shadowed copy of the metadata.
+   * 
+   * @returns { string } a string representing the PDF document's metadata in UTF-8 encoding.
+   */
   get metadata() {
     const streamRef = this.catDict.getRaw('Metadata');
     if (!isRef(streamRef)) {
@@ -83,6 +111,21 @@ class Catalog {
     return shadow(this, 'metadata', metadata);
   }
 
+  /**
+   * @description Obtains a top-level pages dictionary from the category dictionary,
+   * validates its format, and returns it as a shadowed object to preserve context.
+   * 
+   * @returns { shadow` instance of the `this` context's `toplevelPagesDict } a shadowed
+   * dictionary containing the top-level pages of the application.
+   * 
+   * 	1/ pagesObj: This is an object representing the top-level pages dictionary, which
+   * is a subproperty of the 'catDict' property.
+   * 	2/ shadow(this, 'toplevelPagesDict', pagesObj): This is an instance of the `shadow`
+   * function that creates a new copy of the pages dictionary as a separate instance,
+   * preserving any attributes or methods it may have.
+   * 	3/ isDict(): This function checks whether the input object is a valid dictionary.
+   * If the output of `toplevelPagesDict` is not a dictionary, an error is thrown.
+   */
   get toplevelPagesDict() {
     const pagesObj = this.catDict.get('Pages');
     if (!isDict(pagesObj)) {
@@ -91,6 +134,16 @@ class Catalog {
     return shadow(this, 'toplevelPagesDict', pagesObj);
   }
 
+  /**
+   * @description Generates high-quality documentation for given code.
+   * 
+   * @returns { obj } an object representing the document outline.
+   * 
+   * 		- `obj`: The document outline as an object.
+   * 		- `shadow(this, 'documentOutline', obj)`: Shadow the `documentOutline` property
+   * with the output object, which is a recommended practice for maintaining internal
+   * consistency in the code.
+   */
   get documentOutline() {
     let obj = null;
     try {
@@ -180,6 +233,13 @@ class Catalog {
     return (root.items.length > 0 ? root.items : null);
   }
 
+  /**
+   * @description Retrieves and returns a value representing an object's permissions,
+   * using internal mechanisms for read-access to those values if they are not already
+   * provided in the input arguments.
+   * 
+   * @returns { object } an array of strings representing the user's permissions.
+   */
   get permissions() {
     let permissions = null;
     try {
@@ -222,6 +282,12 @@ class Catalog {
     return permissions;
   }
 
+  /**
+   * @description Retrieves the page count from a top-level pages dictionary and returns
+   * it as an integer value.
+   * 
+   * @returns { integer } the page count in the top-level pages dictionary.
+   */
   get numPages() {
     const obj = this.toplevelPagesDict.get('Count');
     if (!Number.isInteger(obj)) {
@@ -231,6 +297,14 @@ class Catalog {
     return shadow(this, 'numPages', obj);
   }
 
+  /**
+   * @description Creates an array of destinations by iterating over objects and calling
+   * `fetchDestination`. It uses the `shadow` function to set the new array as the
+   * property value of the parent object.
+   * 
+   * @returns { object } an array of destinations, populated with data fetched from a
+   * name tree or dictionary.
+   */
   get destinations() {
     const obj = this._readDests(), dests = Object.create(null);
     if (obj instanceof NameTree) {
@@ -248,6 +322,26 @@ class Catalog {
     return shadow(this, 'destinations', dests);
   }
 
+  /**
+   * @description Retrieves the destination data for a given `destinationId`. If the
+   * destination is a NameTree or Dict object, it fetches the corresponding data from
+   * an external API using the `fetchDestination` function. Otherwise, it returns `null`.
+   * 
+   * @param { integer } destinationId - 0-based index of the destination to be fetched
+   * from the object returned by `_readDests()`.
+   * 
+   * @returns { null } a promise of a destination object.
+   * 
+   * 		- If the function returns `fetchDestination(obj.get(destinationId) || null;`,
+   * the output is an instance of ` fetchDestination`.
+   * 		- `fetchDestination` has a single property called `data`, which is an object
+   * that contains information about the destination.
+   * 		- The `data` object may have other properties, such as `id`, `name`, `description`,
+   * and so on. These properties depend on the type of `fetchDestination` instance being
+   * returned.
+   * 		- If the function returns `null`, it means that no suitable destination was found
+   * for the given `destinationId`.
+   */
   getDestination(destinationId) {
     const obj = this._readDests();
     if (obj instanceof NameTree || obj instanceof Dict) {
@@ -269,6 +363,11 @@ class Catalog {
     return undefined;
   }
 
+  /**
+   * @description Reads and returns a label for each page in the document.
+   * 
+   * @returns { array } an object containing page labels information.
+   */
   get pageLabels() {
     let obj = null;
     try {
@@ -378,6 +477,12 @@ class Catalog {
     return pageLabels;
   }
 
+  /**
+   * @description Retrieves a dictionary object representing the layout of a page based
+   * on a predefined naming scheme, and returns a string indicating the layout type.
+   * 
+   * @returns { string } a string representing the page layout configuration.
+   */
   get pageLayout() {
     const obj = this.catDict.get('PageLayout');
     // Purposely use a non-standard default value, rather than 'SinglePage', to
@@ -399,6 +504,13 @@ class Catalog {
     return shadow(this, 'pageLayout', pageLayout);
   }
 
+  /**
+   * @description Determines the page display mode based on configuration options stored
+   * in a dictionary and returns the selected mode as a string value.
+   * 
+   * @returns { string } the selected page mode (UseNone, UseOutlines, UseThumbs,
+   * FullScreen, or UseOC) based on the dict object passed as input.
+   */
   get pageMode() {
     const obj = this.catDict.get('PageMode');
     let pageMode = 'UseNone'; // Default value.
@@ -417,6 +529,14 @@ class Catalog {
     return shadow(this, 'pageMode', pageMode);
   }
 
+  /**
+   * @description Retrieves preferences from a JavaScript Object, validates them against
+   * specified standards, and returns an updated version of the preferences object for
+   * the application.
+   * 
+   * @returns { object } an object with modified `ViewerPreferences` settings based on
+   * input values.
+   */
   get viewerPreferences() {
     const ViewerPreferencesValidators = {
       HideToolbar: isBool,
@@ -519,6 +639,24 @@ class Catalog {
             if (length % 2 !== 0) { // The number of elements must be even.
               break;
             }
+            /**
+             * @description Evaluates whether a given page number is within the valid range for
+             * an array of integers. It checks if the input `page` is an integer, greater than
+             * or equal to zero, and if the input `i` is either equal to zero or the previous
+             * element in the array is greater than or equal to the current page.
+             * 
+             * @param { integer } page - 0-based index of a particular page in an array of values,
+             * and the function checks whether it is a valid page number within the range of pages
+             * available based on the `numPages` variable.
+             * 
+             * @param { integer } i - 0-based index of the current element being checked for
+             * validation within the array passed to the function.
+             * 
+             * @param { array } arr - 2D array containing the page numbers.
+             * 
+             * @returns { boolean } a boolean value indicating whether the `page` parameter is
+             * valid and falls within the range of the array `arr`.
+             */
             const isValid = value.every((page, i, arr) => {
               return (Number.isInteger(page) && page > 0) &&
                      (i === 0 || page >= arr[i - 1]) && page <= this.numPages;
@@ -547,6 +685,14 @@ class Catalog {
     return shadow(this, 'viewerPreferences', prefs);
   }
 
+  /**
+   * @description Generates a destination URL based on a provided OpenAction dictionary
+   * or array of objects. It first converts the input to a format compatible with
+   * `parseDestDictionary`, then parses the result to determine the final destination
+   * URL.
+   * 
+   * @returns { array } an array of destination objects for an open action.
+   */
   get openActionDestination() {
     const obj = this.catDict.get('OpenAction');
     let openActionDest = null;
@@ -569,6 +715,12 @@ class Catalog {
     return shadow(this, 'openActionDestination', openActionDest);
   }
 
+  /**
+   * @description Retrieves embedded files from a PDF document's `Names` dictionary and
+   * returns an object with file names as keys and serializable objects as values.
+   * 
+   * @returns { object } an object containing serialized PDF files.
+   */
   get attachments() {
     const obj = this.catDict.get('Names');
     let attachments = null;
@@ -587,10 +739,28 @@ class Catalog {
     return shadow(this, 'attachments', attachments);
   }
 
+  /**
+   * @description Takes a `obj` parameter, which is an object containing JavaScript
+   * code. It then iterates through the JavaScript objects in the object and appends
+   * each one to an array called `javaScript`.
+   * 
+   * @returns { array } an array of JavaScript code strings.
+   */
   get javaScript() {
     const obj = this.catDict.get('Names');
 
     let javaScript = null;
+    /**
+     * @description Checks if a JavaScript dictionary contains certain keys, then appends
+     * any JavaScript values to an array.
+     * 
+     * @param { object } jsDict - JavaScript dictionary containing data related to the
+     * JavaScript code, which is then processed and added to the `javaScript` array within
+     * the function.
+     * 
+     * @returns { array } a JSON dictionary containing the JavaScript data converted into
+     * a string representation suitable for use in Adobe Acrobat.
+     */
     function appendIfJavaScriptDict(jsDict) {
       const type = jsDict.get('S');
       if (!isName(type, 'JavaScript')) {
@@ -645,6 +815,24 @@ class Catalog {
     return shadow(this, 'javaScript', javaScript);
   }
 
+  /**
+   * @description Returns a promise that resolves to an array of translated fonts, and
+   * then iterates through each translated font to find one with the provided `id`. If
+   * found, it calls the given `handler` function on that translated font.
+   * 
+   * @param { string } id - identity of a font to be searched for translation in the `fontCache`.
+   * 
+   * @param { `function`. } handler - fallback action to perform when a translated font
+   * is not found for the given `id`.
+   * 
+   * 		- `loadedName`: The name of the loaded font, which is the key used to look up
+   * the corresponding fallback data in the cache.
+   * 		- `fallback`: A function that will be called with the font data and the given
+   * `handler`. This function provides the fallback functionality for the font.
+   * 
+   * @returns { Promise } a promise that resolves when all of the translated fonts have
+   * been loaded and their fallback functionality has been triggered.
+   */
   fontFallback(id, handler) {
     const promises = [];
     this.fontCache.forEach(function(promise) {
@@ -661,6 +849,13 @@ class Catalog {
     });
   }
 
+  /**
+   * @description Clears cache, and removes translated font information from the object,
+   * and clears built-in CMap cache.
+   * 
+   * @returns { Promise } a set of promises that, when resolved, clear cache entries
+   * for fonts and built-in C Maps.
+   */
   cleanup() {
     clearPrimitiveCaches();
     this.pageKidsCountCache.clear();
@@ -680,12 +875,36 @@ class Catalog {
     });
   }
 
+  /**
+   * @description Retrieves a page dictionary for a given index, by recursively traversing
+   * the document's tree structure and visiting each node until the desired page is
+   * found or the end of the tree is reached.
+   * 
+   * @param { integer } pageIndex - 0-based index of the page within the document that
+   * the function is called for, and is used to limit the search to the correct portion
+   * of the PDF tree when finding the requested page.
+   * 
+   * @returns { array } a promise that resolves with a dictionary containing the Page
+   * object at the specified page index, or rejects with an error if the page cannot
+   * be found.
+   */
   getPageDict(pageIndex) {
     const capability = createPromiseCapability();
     const nodesToVisit = [this.catDict.getRaw('Pages')];
     const xref = this.xref, pageKidsCountCache = this.pageKidsCountCache;
     let count, currentPageIndex = 0;
 
+    /**
+     * @description Navigates through a tree of nodes represented as objects, following
+     * the links between them. It visits each node and checks if it's a `Page` dictionary
+     * or a child page dictionary. If it's a `Page` dictionary, it resolves the capability
+     * with the corresponding Page reference, increments the current page index, and moves
+     * on to the next node. Otherwise, it skips the node and moves on to the next one in
+     * the list.
+     * 
+     * @returns { object } a rejected promise if no valid pages are found, or an array
+     * of objects representing the next page to be visited.
+     */
     function next() {
       while (nodesToVisit.length) {
         const currentNode = nodesToVisit.pop();
@@ -775,12 +994,61 @@ class Catalog {
     return capability.promise;
   }
 
+  /**
+   * @description Calculates the page number in a document hierarchy based on a reference.
+   * It walks up the tree, aggregating page counts from siblings and ancestors, until
+   * it reaches the root node. The function returns an array of two values: the total
+   * count of pages in the document and the reference of the parent node.
+   * 
+   * @param { object } pageRef - reference to the page for which the number of pages
+   * before it is to be calculated.
+   * 
+   * @returns { array } a pair of integers: the total number of pages and the reference
+   * to the parent page.
+   */
   getPageIndex(pageRef) {
     // The page tree nodes have the count of all the leaves below them. To get
     // how many pages are before we just have to walk up the tree and keep
     // adding the count of siblings to the left of the node.
     const xref = this.xref;
 
+    /**
+     * @description Retrieves a reference's page count by recursively traversing its
+     * parent node's kids until a match is found, or an error occurs due to invalid node
+     * types or lack of necessary fields. It returns the total number of pages and the
+     * parent reference.
+     * 
+     * @param { `reference`. } kidRef - reference to a page that is being searched for
+     * among its ancestors.
+     * 
+     * 		- `kidRef`: This is an instance of `Reference`, representing a reference to a
+     * page or dictionary in the document. It has attributes such as `type`, `ref`, and
+     * `count`.
+     * 		- `type`: This attribute determines whether the reference points to a page or
+     * dictionary. If it's `Page`, then the reference is a page reference, otherwise,
+     * it's a dictionary reference.
+     * 		- `ref`: This is the unique identifier of the referenced page or dictionary.
+     * 		- `count`: This attribute indicates the number of times the referenced page or
+     * dictionary appears in the document.
+     * 
+     * 	The function first checks if the input reference matches the parent reference and
+     * if the node is not a dictionary, then it throws an error. It then fetches the node
+     * associated with the input reference using `xref.fetchAsync()` and checks if it's
+     * a dictionary. If it's not a dictionary, it throws another error.
+     * 
+     * 	The function then retrieves the parent reference by calling the `getRaw()` method
+     * on the fetched node. Then, it calls the `getAsync()` method on the parent reference
+     * to retrieve its 'Kids' attribute.
+     * 
+     * 	Finally, the function creates an array of promises for each child node and passes
+     * it to `Promise.all()`. Each promise returns the count of the child node if it's a
+     * page leaf node, or the child node itself if it's not a page leaf node. The
+     * `Promise.all()` method then resolves with an array of two values: the total number
+     * of pages and the parent reference.
+     * 
+     * @returns { array } an array of two values: the total number of pages and the
+     * reference to the parent page.
+     */
     function pagesBeforeRef(kidRef) {
       let total = 0, parentRef;
 
@@ -843,6 +1111,17 @@ class Catalog {
     }
 
     let total = 0;
+    /**
+     * @description Iterates over the pages before a reference `ref`, counting the number
+     * of pages and calling itself with the parent reference until it reaches the total
+     * count.
+     * 
+     * @param { string } ref - current page number, which is used to calculate the total
+     * number of pages and recurse through the hierarchy of pages to retrieve the next page.
+     * 
+     * @returns { number } the sum of the page count and a new value returned from calling
+     * the function recursively.
+     */
     function next(ref) {
       return pagesBeforeRef(ref).then(function(args) {
         if (!args) {
@@ -872,12 +1151,32 @@ class Catalog {
    */
   static parseDestDictionary(params) {
     // Lets URLs beginning with 'www.' default to using the 'http://' protocol.
+    /**
+     * @description Updates a URL by adding a default protocol if it does not start with
+     * "http".
+     * 
+     * @param { string } url - URL to be modified, and its value determines whether the
+     * URL begins with "www." or not, which in turn is used to determine the final URL
+     * returned by the function.
+     * 
+     * @returns { string } a revised URL based on the input.
+     */
     function addDefaultProtocolToUrl(url) {
       return (url.startsWith('www.') ? `http://${url}` : url);
     }
 
     // According to ISO 32000-1:2008, section 12.6.4.7, URIs should be encoded
     // in 7-bit ASCII. Some bad PDFs use UTF-8 encoding; see Bugzilla 1122280.
+    /**
+     * @description Takes a string as input and tries to convert it to UTF-8 encoding
+     * using `stringToUTF8String`. If conversion is successful, the resulting encoded
+     * string is returned. If an error occurs, the original input string is returned instead.
+     * 
+     * @param { string } url - string that is to be converted from URL encoding to UTF-8
+     * encoding in the function.
+     * 
+     * @returns { string } the converted URL-encoded string.
+     */
     function tryConvertUrlEncoding(url) {
       try {
         return stringToUTF8String(url);
@@ -1037,6 +1336,32 @@ class Catalog {
 }
 
 var XRef = (function XRefClosure() {
+  /**
+   * @description Generates a cache for storing the xref table entries, manages the
+   * stream, and maintains statistical information about stream types and font types.
+   * 
+   * @param { stream. } stream - 13-digit reference stream for the PDF document being
+   * processed.
+   * 
+   * 	1/ `stream`: The stream object is the primary input to the `XRef` function. It
+   * represents a PDF file or a part of it.
+   * 	2/ `pdfManager`: A reference to the `PdfManager` instance that is used for managing
+   * PDF documents.
+   * 	3/ `entries`: An array of objects that store information about the PDF document's
+   * pages, such as page number, size, and MediaBox coordinates.
+   * 	4/ `xrefstms`: A cache object that stores the XRef tables for the PDF document.
+   * These tables contain information about the contents of the document, including the
+   * location of objects, fonts, and other elements.
+   * 	5/ `cache`: An array of objects that store data used to speed up subsequent
+   * operations on the same PDF document. The length and properties of this array depend
+   * on the specific implementation of the `XRef` function.
+   * 	6/ `stats`: Two objects that provide statistics about the stream and font types
+   * in the PDF document: `streamTypes` and `fontTypes`. These objects are used for
+   * performance optimization and other purposes.
+   * 
+   * @param { object } pdfManager - PDF document manager, which provides methods for
+   * operating on PDF documents.
+   */
   function XRef(stream, pdfManager) {
     this.stream = stream;
     this.pdfManager = pdfManager;
@@ -1343,6 +1668,21 @@ var XRef = (function XRefClosure() {
       var TAB = 0x9, LF = 0xA, CR = 0xD, SPACE = 0x20;
       var PERCENT = 0x25, LT = 0x3C;
 
+      /**
+       * @description Reads a token from a given binary data buffer, skipping over line
+       * feed, carriage return, and line termination characters. It returns the read token
+       * as a string.
+       * 
+       * @param { string } data - 1D array of bytes that contains the data being read, and
+       * its value is used to access the specific location within the array where the token
+       * begins.
+       * 
+       * @param { integer } offset - 0-based index of the character position within the
+       * given `data` array where the next token will be read.
+       * 
+       * @returns { string } a string representing the next token found in the given data
+       * array.
+       */
       function readToken(data, offset) {
         var token = '', ch = data[offset];
         while (ch !== LF && ch !== CR && ch !== LT) {
@@ -1354,6 +1694,24 @@ var XRef = (function XRefClosure() {
         }
         return token;
       }
+      /**
+       * @description Searches for a given byte sequence in an array of bytes starting from
+       * an offset, returning the number of bytes skipped until the sequence is found or
+       * reaching the end of the array.
+       * 
+       * @param { array } data - ndex or string that the function will skip until it finds
+       * the specified byte sequence.
+       * 
+       * @param { integer } offset - starting position within the data array where the byte
+       * sequence should be skipped.
+       * 
+       * @param { array } what - sequence to be found in the data, and its length is used
+       * to determine how many iterations the while loop will perform until the sequence
+       * is found or the maximum value is reached.
+       * 
+       * @returns { integer } the number of bytes skipped until a specific byte sequence
+       * is found in the input data.
+       */
       function skipUntil(data, offset, what) {
         var length = what.length, dataLength = data.length;
         var skipped = 0;
@@ -1666,6 +2024,25 @@ var XRef = (function XRefClosure() {
       return xrefEntry;
     },
 
+    /**
+     * @description Parses an uncompressed XRef entry and returns the generation number
+     * or throws an exception if the entry is bad. It also provides the ability to encrypt
+     * the XRef entry if required.
+     * 
+     * @param { object } ref - 16-bit reference number of an XRef entry, which is used
+     * to locate the entry in the PDF file.
+     * 
+     * @param { object } xrefEntry - 64-bit reference value that contains the entry
+     * information of an XRef stream, and is used to compare it with the provided reference
+     * value to ensure consistency.
+     * 
+     * @param { false } suppressEncryption - choice to encrypt or not to encrypt XRef
+     * entries, if set to `true`, will encrypt the XRef entry using the provided `encrypt`
+     * object and transform it with the associated encryption method.
+     * 
+     * @returns { integer } an XRef entry object containing the number and generation of
+     * the reference.
+     */
     fetchUncompressed(ref, xrefEntry, suppressEncryption = false) {
       var gen = ref.gen;
       var num = ref.num;
@@ -1713,6 +2090,45 @@ var XRef = (function XRefClosure() {
       return xrefEntry;
     },
 
+    /**
+     * @description Reads a compressed object stream from a PDF and retrieves an XRef
+     * entry from it. It uses a Lexer and Parser to parse the stream, checks for invalid
+     * data, and caches objects in memory for faster lookups.
+     * 
+     * @param { object } ref - 32-bit reference value of an object stored in the XRef
+     * table, which is used to retrieve the corresponding XRef entry from the cache or
+     * fetch it from the stream if not found in the cache.
+     * 
+     * @param { object } xrefEntry - 32-bit value of the XRef entry being searched for
+     * in the PDF document, and is used to locate the corresponding entry in the cache
+     * and return it if found.
+     * 
+     * @param { false } suppressEncryption - ‍Boolean value of suppressing the encryption
+     * of the ObjStm stream when reading it.
+     * 
+     * @returns { XRefEntry } a compressed XRef entry.
+     * 
+     * 		- `tableOffset`: The offset of the table in the PDF document.
+     * 		- `xrefEntry`: An object that represents an XRef entry in the compressed stream.
+     * This object contains the gen (generation number), type (object or indirect reference),
+     * and entry (a vector containing the offset of the object or the ID of the indirect
+     * reference).
+     * 		- `stream`: A stream object that contains the compressed data for the specified
+     * table entry.
+     * 		- `first`: The first entry in the stream. This is either an integer indicating
+     * the number of objects in the stream, or a dictionary containing the First field.
+     * 		- `n`: The total number of objects in the stream. This is either an integer
+     * indicating the number of objects in the stream, or a dictionary containing the N
+     * field.
+     * 		- `parser`: An object that represents the Parser used to parse the compressed
+     * stream. This object contains methods for getting ObjStm objects and other metadata.
+     * 
+     * 	The function first retrieves the table offset and stream data from the specified
+     * reference using `fetch`. It then validates the stream data and reads the object
+     * numbers and offsets to populate the cache. The stream objects are then read and
+     * stored in the cache for the specified object number. Finally, the xref entry is
+     * returned, along with the corresponding stream data and parser object.
+     */
     fetchCompressed(ref, xrefEntry, suppressEncryption = false) {
       var tableOffset = xrefEntry.offset;
       var stream = this.fetch(Ref.get(tableOffset, 0));
@@ -1766,6 +2182,26 @@ var XRef = (function XRefClosure() {
       return xrefEntry;
     },
 
+    /**
+     * @description Checks if the input argument is a reference before calling the
+     * `fetchAsync` function with that reference as its argument, or returns the input
+     * argument directly if it's not a reference.
+     * 
+     * @param { object } obj - object to be fetched or returned if it is not a reference.
+     * 
+     * @param { boolean } suppressEncryption - option to skip encryption for the fetched
+     * data.
+     * 
+     * @returns { obj } a resolved reference or the result of an asynchronous fetch operation.
+     * 
+     * 		- `obj`: This is the input parameter to the function, which can be either a
+     * reference or an object. If it is a reference, the function will return the resolved
+     * value immediately. Otherwise, it will call `fetchAsync` with the same input
+     * parameters and return the result.
+     * 		- `suppressEncryption`: This is an optional parameter that controls whether
+     * encryption should be suppressed for the fetch operation. If set to `true`, encryption
+     * will not be applied to the fetch response.
+     */
     async fetchIfRefAsync(obj, suppressEncryption) {
       if (!isRef(obj)) {
         return obj;
@@ -1773,6 +2209,26 @@ var XRef = (function XRefClosure() {
       return this.fetchAsync(obj, suppressEncryption);
     },
 
+    /**
+     * @description Executes a `fetch` operation and handles errors by requesting a range
+     * of PDF pages using the `pdfManager.requestRange` method if the error is not a
+     * `MissingDataException`. If an error occurs, it will continue to call the function
+     * with the same arguments until the requested range of pages is received.
+     * 
+     * @param { 'undefined' (type null). } ref - reference to the PDF file that is being
+     * fetched or processed.
+     * 
+     * 		- `ref`: A reference object containing details about the requested data, such
+     * as its beginning and ending ranges. It is possible to extract various attributes
+     * from `ref`, including `begin` and `end`.
+     * 
+     * @param { boolean } suppressEncryption - Whether or not to suppress encryption
+     * during the fetching operation.
+     * 
+     * @returns { object } the result of calling the `fetch` method with the provided
+     * reference and encryption options, followed by a call to `pdfManager.requestRange`
+     * if an exception is thrown.
+     */
     async fetchAsync(ref, suppressEncryption) {
       try {
         return this.fetch(ref, suppressEncryption);
@@ -1799,6 +2255,28 @@ var XRef = (function XRefClosure() {
  * TODO: implement all the Dict functions and make this more efficient.
  */
 class NameOrNumberTree {
+  /**
+   * @description Sets the `root`, `xref`, and `_type` properties of an object, preventing
+   * initialization if the object is already initialized as `NameOrNumberTree`.
+   * 
+   * @param { number } root - base node of the tree.
+   * 
+   * @param { `xref`. } xref - xygen link to an existing XML documentation
+   * 
+   * 		- `root`: The root node of the tree, which represents the top-level object in
+   * the JSON document.
+   * 		- `xref`: A reference to the XML document that contains the JSON data. This
+   * property can be used to navigate to other parts of the document.
+   * 		- `_type`: The type of the tree, which can be used to determine the appropriate
+   * behavior when encountering nodes or attributes that are not recognized.
+   * 
+   * @param { `_type`. } type - type of object being constructed, which is used to
+   * initialize the correct instance of a tree-like structure in the `NameOrNumberTree`
+   * class.
+   * 
+   * 		- If `this.constructor === NameOrNumberTree`, the input `type` is `unreachable`,
+   * indicating an error in initialization.
+   */
   constructor(root, xref, type) {
     if (this.constructor === NameOrNumberTree) {
       unreachable('Cannot initialize NameOrNumberTree.');
@@ -1808,6 +2286,13 @@ class NameOrNumberTree {
     this._type = type;
   }
 
+  /**
+   * @description Fetches all entries in a given object, creating a new dictionary with
+   * the values found in the object's child nodes, if any.
+   * 
+   * @returns { object } a dictionary of objects, where each object represents an entry
+   * in the name/number tree.
+   */
   getAll() {
     const dict = Object.create(null);
     if (!this.root) {
@@ -1845,6 +2330,43 @@ class NameOrNumberTree {
     return dict;
   }
 
+  /**
+   * @description Searches for a specific key within an PDF xref entry's children or
+   * entries. It performs binary search to quickly find the correct entry and then
+   * iterates through the entry's keys to locate the requested key.
+   * 
+   * @param { string } key - 8-byte or 4-byte value to be searched for in the PDF
+   * document's dictionary.
+   * 
+   * @returns { null } a reference to an entry in the tree, or `null` if the key was
+   * not found.
+   * 
+   * 		- `xref`: This is an object that stores references to the pages in the PDF
+   * document. It has a `fetchIfRef()` method that returns a reference to the page if
+   * it exists, or null if it doesn't.
+   * 		- `this.root`: This is a reference to the root element of the PDF tree.
+   * 		- `this._type`: This is a string that specifies the type of the tree (e.g.,
+   * "Object", "Array").
+   * 		- `kidsOrEntries`: This is an object that contains either the kids or entries
+   * of the PDF tree, depending on whether the key is found in the tree.
+   * 		- `fetchIfRef()`: This method fetches a reference to a page in the PDF document
+   * if it exists, or returns null if it doesn't.
+   * 		- `get('Limits')`: This is a method that retrieves an array of limits for the
+   * PDF entry.
+   * 		- `Limits[]`: This is an array of limits for the PDF entry. Each limit has a key
+   * and a value property.
+   * 		- `key`: This is the key being searched for in the PDF tree.
+   * 		- `r`: This is an integer variable that tracks the loop count during the binary
+   * search. It starts at 0 and increases by 1 each time the function completes a
+   * successful search.
+   * 		- `loopCount`: This is a variable that keeps track of the number of times the
+   * binary search has been performed. It's set to 0 initially, and increased by 1 each
+   * time the function completes a successful search.
+   * 		- `kidsOrEntries.get(this._type)`: This retrieves an array of entries belonging
+   * to the specified type in the PDF tree.
+   * 		- `info()`: This is a debug function that outputs messages to the console for
+   * various events occurring during the binary search.
+   */
   get(key) {
     if (!this.root) {
       return null;
@@ -1925,12 +2447,32 @@ class NameOrNumberTree {
 }
 
 class NameTree extends NameOrNumberTree {
+  /**
+   * @description Establishes a new instance of the ` Names` class and assigns it to
+   * its superclass's constructor argument.
+   * 
+   * @param { object } root - root node of the documentation tree in the constructor.
+   * 
+   * @param { string } xref - reference count of the object being constructed, which
+   * is used to update the reference count for the object when it is created or updated
+   * in the Names module.
+   */
   constructor(root, xref) {
     super(root, xref, 'Names');
   }
 }
 
 class NumberTree extends NameOrNumberTree {
+  /**
+   * @description Sets up the necessary references for an instance of the `Nums` class.
+   * 
+   * @param { any } root - root object of the package where the documentation is being
+   * generated.
+   * 
+   * @param { string } xref - cross-reference object that provides access to various
+   * information about the documentation and its elements, which is used by the constructor
+   * to properly initialize the `Nums` instance.
+   */
   constructor(root, xref) {
     super(root, xref, 'Nums');
   }
@@ -1944,6 +2486,21 @@ class NumberTree extends NameOrNumberTree {
  * collections attributes and related files (/RF)
  */
 var FileSpec = (function FileSpecClosure() {
+  /**
+   * @description Creates a new instance with information from an Acrobat file, including
+   * the file specification (FS) and its related files, if available. It also checks
+   * for related file specifications and non-embedded files, providing alerts and setting
+   * the content availability accordingly.
+   * 
+   * @param { object } root - PDF document's root element, which is used to determine
+   * the file specification's properties and contents.
+   * 
+   * @param { object } xref - 10-adic reference for the file specification, which is
+   * used to associate the file specification with the correct PDF document.
+   * 
+   * @returns { object } an object containing various properties related to a PDF file's
+   * filespec.
+   */
   function FileSpec(root, xref) {
     if (!root || !isDict(root)) {
       return;
@@ -1966,6 +2523,17 @@ var FileSpec = (function FileSpecClosure() {
     }
   }
 
+  /**
+   * @description Identifies a platform item based on a given dictionary and returns
+   * the matching value if found, or `null` otherwise.
+   * 
+   * @param { object } dict - dictionary or object containing the information about the
+   * platform item to be picked, which is searched and returned based on the priority
+   * order specified in the function.
+   * 
+   * @returns { string } the filename corresponding to the platform specified in the
+   * input dictionary, or `null` if no matching platform is found.
+   */
   function pickPlatformItem(dict) {
     // Look for the filename in this order:
     // UF, F, Unix, Mac, DOS
@@ -1984,6 +2552,12 @@ var FileSpec = (function FileSpecClosure() {
   }
 
   FileSpec.prototype = {
+    /**
+     * @description Retrieves the file name of an object's root item and returns it as a
+     * PDF string.
+     * 
+     * @returns { string } the file name of the active PDF document.
+     */
     get filename() {
       if (!this._filename && this.root) {
         var filename = pickPlatformItem(this.root) || 'unnamed';
@@ -1994,6 +2568,14 @@ var FileSpec = (function FileSpecClosure() {
       }
       return this._filename;
     },
+    /**
+     * @description Checks if there is any available content and if so, retrieves it from
+     * an XRef using the file object returned by `xref.fetchIfRef()` or warns if no content
+     * is found.
+     * 
+     * @returns { array } the contents of an embedded file or null if the file does not
+     * exist.
+     */
     get content() {
       if (!this.contentAvailable) {
         return null;
@@ -2016,6 +2598,12 @@ var FileSpec = (function FileSpecClosure() {
       }
       return content;
     },
+    /**
+     * @description Returns an object containing the file name and content of the given
+     * code.
+     * 
+     * @returns { object } an object containing the file name and content.
+     */
     get serializable() {
       return {
         filename: this.filename,
@@ -2038,11 +2626,33 @@ var FileSpec = (function FileSpecClosure() {
  * entire PDF document object graph to be traversed.
  */
 let ObjectLoader = (function() {
+  /**
+   * @description Determines whether a value has child values by checking for objects,
+   * arrays, streams, or if it's a reference (not an object itself but might have
+   * children inside).
+   * 
+   * @param { array } value - value that determines whether the function returns `true`
+   * or `false`.
+   * 
+   * @returns { boolean } a boolean value indicating whether the given value may have
+   * children or not.
+   */
   function mayHaveChildren(value) {
     return isRef(value) || isDict(value) || Array.isArray(value) ||
            isStream(value);
   }
 
+  /**
+   * @description Iterates over a node's children by recursively calling itself for
+   * each key in the node's dictionary or an array value, pushing the node to visit if
+   * it may have children.
+   * 
+   * @param { object } node - starting point for the recursive traversal of nodes to
+   * visit, and its type determines which type of nodes are considered during the traversal.
+   * 
+   * @param { array } nodesToVisit - nodes that should be visited and added to the
+   * resulting children array.
+   */
   function addChildren(node, nodesToVisit) {
     if (isDict(node) || isStream(node)) {
       let dict = isDict(node) ? node : node.dict;
@@ -2063,6 +2673,18 @@ let ObjectLoader = (function() {
     }
   }
 
+  /**
+   * @description Loads and manages a dictionary's objects, keys, and cross-references
+   * based on user input.
+   * 
+   * @param { object } dict - 2D image data that will be loaded by the `ObjectLoader`
+   * function.
+   * 
+   * @param { array } keys -
+   * 
+   * @param { object } xref - XML index reference for the object dictionary, which
+   * allows for faster access to the corresponding object data in the dictionary.
+   */
   function ObjectLoader(dict, keys, xref) {
     this.dict = dict;
     this.keys = keys;
@@ -2072,6 +2694,14 @@ let ObjectLoader = (function() {
   }
 
   ObjectLoader.prototype = {
+    /**
+     * @description Generates a promise capability, resolves it if no data is missing
+     * from the graph, and otherwise walks the graph to gather nodes to visit. It returns
+     * the promise for the resolved capability.
+     * 
+     * @returns { Promise } a resolved promise that resolves to the result of walking the
+     * graph.
+     */
     load() {
       this.capability = createPromiseCapability();
       // Don't walk the graph if all the data is already loaded.
@@ -2097,6 +2727,20 @@ let ObjectLoader = (function() {
       return this.capability.promise;
     },
 
+    /**
+     * @description Performs a depth-first search of an object graph, loading and revisiting
+     * nodes as necessary to resolve any missing data chunks. It maintains a `RefSet` of
+     * currently visited nodes and checks for references or chunked streams that may cause
+     * missing data exceptions. When all data is loaded, the function removes any reference
+     * nodes from the `RefSet` and resolves the capability.
+     * 
+     * @param { object } nodesToVisit - object graph that the function will traverse
+     * through a depth-first search (DFS) walk, starting from the root node and following
+     * pointers to visit all nodes in the graph.
+     * 
+     * @returns { Promise } a resolved `RefSet` and a promise for loading any missing
+     * data chunks.
+     */
     _walk(nodesToVisit) {
       let nodesToRevisit = [];
       let pendingRequests = [];
